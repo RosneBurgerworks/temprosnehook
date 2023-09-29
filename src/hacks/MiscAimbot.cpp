@@ -1,11 +1,14 @@
-// rewritten by rosne-gamingyt
+//
+// Created by bencat07 on 28.09.18.
+//
 
 #include "common.hpp"
 #include "settings/Bool.hpp"
+#include "settings/Int.hpp"
+#include "settings/Key.hpp"
 #include "PlayerTools.hpp"
 #include "MiscAimbot.hpp"
 #include "DetourHook.hpp"
-#include "Backtrack.hpp"
 
 namespace hacks::misc_aimbot
 {
@@ -14,63 +17,74 @@ constexpr float initial_vel    = 200.0f;
 int prevent                    = -1;
 static Timer previous_entity_delay{};
 
+// TODO: Refactor this jank
 std::pair<CachedEntity *, Vector> FindBestEnt(bool teammate, bool Predict, bool zcheck,  float range)
 {
     CachedEntity *bestent                             = nullptr;
     float bestscr                                     = FLT_MAX;
-    std::optional<backtrack::BacktrackData> best_data = std::nullopt;
     Vector predicted{};
     // Too long since we focused it
-    if (previous_entity_delay.check(100))
+    if (previous_entity_delay.check(150))
         prevent = -1;
 
-    bool shouldBacktrack = backtrack::backtrackEnabled() && !backtrack::hasData();
-
-    auto calculateEntity = [&](CachedEntity *ent) -> std::optional<std::tuple<float, Vector, std::optional<backtrack::BacktrackData>>>
-    {
-        if (RAW_ENT(ent)->IsDormant() || (teammate && ent->m_iTeam() != g_pLocalPlayer->team) || ent == LOCAL_E)
-            return std::nullopt;
-        if (!teammate && ent->m_iTeam() == g_pLocalPlayer->team)
-            return std::nullopt;
-        if (!ent->hitboxes.GetHitbox(1))
-            return std::nullopt;
-        if (!teammate && !player_tools::shouldTarget(ent))
-            return std::nullopt;
-
-        Vector target{};
-        target = ent->hitboxes.GetHitbox(1)->center;
-
-        if (!shouldBacktrack && !IsEntityVectorVisible(ent, target))
-            return std::nullopt;
-
-        if (zcheck && (ent->m_vecOrigin().z - g_pLocalPlayer->v_Origin.z) > 200.0f)
-            return std::nullopt;
-
-        float scr = ent->m_flDistance();
-
-        std::optional<backtrack::BacktrackData> data = std::nullopt;
-
-        if (g_pPlayerResource->GetClass(ent) == tf_medic)
-            scr *= 0.5f;
-
-        return { { scr, target, data } };
-    };
-
-    for (const auto &ent : entity_cache::player_cache)
+    for (int i = 0; i < 1; ++i)
     {
         if (prevent != -1)
         {
-            auto result = calculateEntity(ent);
-            if (result && std::get<0>(*result) < bestscr)
+            auto ent = ENTITY(prevent);
+            if (CE_BAD(ent) || !ent->m_bAlivePlayer() || (teammate && ent->m_iTeam() != LOCAL_E->m_iTeam()) || ent == LOCAL_E)
+                continue;
+            if (!teammate && ent->m_iTeam() == LOCAL_E->m_iTeam())
+                continue;
+            if (!ent->hitboxes.GetHitbox(1))
+                continue;
+            if (!teammate && !player_tools::shouldTarget(ent))
+                continue;
+            Vector target{};
+            if (!IsEntityVectorVisible(ent, target))
+                continue;
+            if (zcheck && (ent->m_vecOrigin().z - LOCAL_E->m_vecOrigin().z) > 200.0f)
+                continue;
+            float scr                                    = ent->m_flDistance();
+            if (g_pPlayerResource->GetClass(ent) == tf_medic)
+                scr *= 0.5f;
+            if (scr < bestscr)
             {
                 bestent   = ent;
-                predicted = std::get<1>(*result);
-                bestscr   = std::get<0>(*result);
+                predicted = target;
+                bestscr   = scr;
                 prevent   = ent->m_IDX;
-                if (shouldBacktrack)
-                    best_data = std::get<2>(*result);
             }
+        }
+        if (bestent && predicted.z)
+        {
             previous_entity_delay.update();
+            return { bestent, predicted };
+        }
+    }
+    prevent = -1;
+    for (auto const &ent : entity_cache::player_cache)
+    {
+        if (CE_BAD(ent) || !(ent->m_bAlivePlayer()) || (teammate && ent->m_iTeam() != LOCAL_E->m_iTeam()) || ent == LOCAL_E)
+            continue;
+        if (!teammate && ent->m_iTeam() == LOCAL_E->m_iTeam())
+            continue;
+        if (!ent->hitboxes.GetHitbox(1))
+            continue;
+        Vector target{};
+        if (!IsEntityVectorVisible(ent, target))
+            continue;
+        if (zcheck && (ent->m_vecOrigin().z - LOCAL_E->m_vecOrigin().z) > 200.0f)
+            continue;
+        float scr                                    = ent->m_flDistance();
+        if (g_pPlayerResource->GetClass(ent) == tf_medic)
+            scr *= 0.5f;
+        if (scr < bestscr)
+        {
+            bestent   = ent;
+            predicted = target;
+            bestscr   = scr;
+            prevent   = ent->m_IDX;
         }
     }
     return { bestent, predicted };
@@ -81,56 +95,19 @@ void DoSlowAim(Vector &input_angle, float speed)
 {
     auto viewangles = current_user_cmd->viewangles;
 
-    // Yaw
-    if (viewangles.y != input_angle.y)
+    // Don't bother if we're already on target (unlikely)
+    if (viewangles != input_angle) [[likely]]
     {
-        float flChargeYawCap = re::CTFPlayerShared::CalculateChargeCap(re::CTFPlayerShared::GetPlayerShared(RAW_ENT(LOCAL_E)));
-        flChargeYawCap *= 2.5f;
+        Vector slow_delta = input_angle - viewangles;
 
-        // Check if input angle and user angle are on opposing sides of yaw so
-        // we can correct for that
-        bool slow_opposing = false;
-        if ((input_angle.y < -90 && viewangles.y > 90) || (input_angle.y > 360 && viewangles.y < -90))
-            slow_opposing = true;
+        slow_delta.y = std::fmod(slow_delta.y + 180.0f, 360.0f) - 180.0f;
 
-        // Direction
-        bool slow_dir = false;
-        if (slow_opposing)
-        {
-            if (input_angle.y > 360 && viewangles.y < -90)
-                slow_dir = true;
-        }
-        else if (viewangles.y > input_angle.y)
-            slow_dir = true;
+        slow_delta /= speed;
+        input_angle = viewangles + slow_delta;
 
-        // Speed, check if opposing. We dont get a new distance due to the
-        // opposing sides making the distance spike, so just cheap out and reuse
-        // our last one.
-        if (!slow_opposing)
-            slow_change_dist_y = std::abs(viewangles.y - input_angle.y) / (int) speed;
-
-        // Move in the direction of the input angle
-        if (slow_dir)
-            input_angle.y = viewangles.y - slow_change_dist_y;
-        else
-            input_angle.y = viewangles.y + slow_change_dist_y;
+        // Clamp as we changed angles
+        fClampAngle(input_angle);
     }
-
-    // Pitch
-    if (viewangles.x != input_angle.x)
-    {
-        // Get speed
-        slow_change_dist_p = std::abs(viewangles.x - input_angle.x) / speed;
-
-        // Move in the direction of the input angle
-        if (viewangles.x > input_angle.x)
-            input_angle.x = viewangles.x - slow_change_dist_p;
-        else
-            input_angle.x = viewangles.x + slow_change_dist_p;
-    }
-
-    // Clamp as we changed angles
-    fClampAngle(input_angle);
 }
 
 static void CreateMove()
