@@ -1,6 +1,7 @@
 // This file just exists because the setupbones reconstruction needs so so
 // many Mathlib functions, and I do not want to clutter helpers.cpp
 #include "common.hpp"
+#include "studio.h"
 
 void AngleMatrix(const QAngle &angles, matrix3x4_t &matrix)
 {
