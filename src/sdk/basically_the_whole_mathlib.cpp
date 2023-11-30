@@ -587,13 +587,3 @@ void QuaternionSlerpNoAlign(const Quaternion &p, const Quaternion &q, float t, Q
 
     Assert(qt.IsValid());
 }
-
-const studiohdr_t *virtualgroup_t::GetStudioHdr() const
-{
-    return g_IMDLCache->GetStudioHdr((MDLHandle_t) (uintptr_t) cache & 0xffff);
-}
-
-int studiohdr_t::GetAutoplayList(unsigned short **pOut) const
-{
-    return g_IMDLCache->GetAutoplayList((MDLHandle_t) (uintptr_t) virtualModel & 0xffff, pOut);
-}
