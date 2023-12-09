@@ -9,6 +9,7 @@
                           tooltip="Automatically capture objectives (CTF, CP, and PL only)."/>
             <AutoVariable width="fill" target="nav.path-during-setup" label="Path during setup"
                           tooltip="Path during setup. Will also path while the gates are closed."/>
+            <AutoVariable width="fill" target="navbot.defend-idle" label="Roam Defend"/>
             <AutoVariable width="fill" target="navbot.search-health" label="Search for health"/>
             <AutoVariable width="fill" target="navbot.search-ammo" label="Search for ammo"/>
             <AutoVariable width="fill" target="navbot.escape-danger" label="Escape danger"/>
