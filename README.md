@@ -4,6 +4,8 @@
 
 # good pasted cheat 👍
 
+# I made this repo for PRs lol
+
 ## Support
 
 https://dsc.gg/rosnehook
