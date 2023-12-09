@@ -22,6 +22,7 @@ static settings::Boolean search_ammo("navbot.search-ammo", "true");
 static settings::Boolean stay_near("navbot.stay-near", "true");
 static settings::Boolean capture_objectives("navbot.capture-objectives", "true");
 static settings::Boolean snipe_sentries("navbot.snipe-sentries", "true");
+static settings::Boolean roam_defend("navbot.defend-idle", "false");
 static settings::Boolean snipe_sentries_shortrange("navbot.snipe-sentries.shortrange", "false");
 static settings::Boolean escape_danger("navbot.escape-danger", "true");
 static settings::Boolean escape_danger_ctf_cap("navbot.escape-danger.ctf-cap", "false");
@@ -1267,23 +1268,26 @@ bool doRoam()
     // Don't path constantly
     if (!roam_timer.test_and_set(2000))
         return false;
-
-    // Defend our objective if possible
-    int enemy_team = g_pLocalPlayer->team == TEAM_BLU ? TEAM_RED : TEAM_BLU;
-
-    std::optional<Vector> target;
-    if (!target)
-        target = getControlPointGoal(enemy_team);
-    if (target)
+    
+    if (roam_defend)
     {
-        if (target->DistToSqr(g_pLocalPlayer->v_Origin) <= Sqr(250.0f))
+        int enemy_team = g_pLocalPlayer->team == TEAM_BLU ? TEAM_RED : TEAM_BLU;
+
+        std::optional<Vector> target;
+        target = getPayloadGoal(enemy_team);
+        if (!target)
+            target = getControlPointGoal(enemy_team);
+        if (target)
         {
-            navparser::NavEngine::cancelPath();
-            return true;
-        }
-        if (navparser::NavEngine::navTo(*target, patrol, true, navparser::NavEngine::current_priority != patrol))
-            return true;
+            if ((*target).DistTo(g_pLocalPlayer->v_Origin) <= 250.0f)
+            {
+                navparser::NavEngine::cancelPath();
+                return true;
+            }
+            if (navparser::NavEngine::navTo(*target, patrol))
+                return true;
     }
+    
 
     // No sniper spots :shrug:
     if (sniper_spots.empty())
