@@ -1,62 +1,48 @@
-/*
- * entry.cpp
- *
- *  Created on: Oct 3, 2016
- *      Author: nullifiedcat
- */
-
+// (C) Nullworks 2017
 #include "common.hpp"
+#include <pthread.h>
+
 #include "hack.hpp"
 
-#include <thread>
-#include <mutex>
-#include <atomic>
+pthread_mutex_t mutex_quit;
+pthread_t thread_main;
 
-std::mutex mutex_quit;
-std::thread thread_main;
-std::atomic_bool is_stopping{ false };
-
-bool IsStopping()
+bool IsStopping(pthread_mutex_t *mutex_quit_l)
 {
-    std::unique_lock lock(mutex_quit, std::try_to_lock);
-    if (!lock.owns_lock()) [[unlikely]]
+    if (!pthread_mutex_trylock(mutex_quit_l))
     {
         logging::Info("Shutting down, unlocking mutex");
+        pthread_mutex_unlock(mutex_quit_l);
         return true;
     }
     else
         return false;
 }
 
-void MainThread()
+void *MainThread(void *arg)
 {
+    auto *mutex_quit_l = (pthread_mutex_t *) arg;
     hack::Initialize();
     logging::Info("Init done...");
-    while (!IsStopping()) [[likely]]
+    while (!IsStopping(mutex_quit_l))
         hack::Think();
     hack::Shutdown();
     logging::Shutdown();
+    return nullptr;
 }
 
-void attach()
+void __attribute__((constructor)) attach()
 {
-    thread_main = std::thread(MainThread);
+    pthread_mutex_init(&mutex_quit, nullptr);
+    pthread_mutex_lock(&mutex_quit);
+    pthread_create(&thread_main, nullptr, MainThread, &mutex_quit);
 }
 
-// FIXME: Currently also closes the game
 void detach()
 {
-    logging::Info("Detaching...");
-    {
-        std::scoped_lock lock(mutex_quit);
-        is_stopping = true;
-    }
-    thread_main.join();
-}
-
-void __attribute__((constructor)) construct()
-{
-    attach();
+    logging::Info("Detaching");
+    pthread_mutex_unlock(&mutex_quit);
+    pthread_join(thread_main, nullptr);
 }
 
 void __attribute__((destructor)) deconstruct()
@@ -64,7 +50,7 @@ void __attribute__((destructor)) deconstruct()
     detach();
 }
 
-CatCommand cat_detach("detach", "Detach Rosnehook from TF2",
+CatCommand cat_detach("detach", "Detach cathook from TF2",
                       []()
                       {
                           hack::game_shutdown = false;
