@@ -169,7 +169,7 @@ static InitRoutine font_size(
                 {
 #if ENABLE_GLEZ_DRAWING
                     fonts::esp->unload();
-                    fonts::esp.reset(new fonts::font(paths::getDataPath("/fonts/notosans.ttf"), after));
+                    fonts::esp.reset(new fonts::font(paths::getDataPath("/fonts/Verdana.ttf"), after));
 #else
                     fonts::esp->changeSize(after);
 #endif
@@ -182,7 +182,7 @@ static InitRoutine font_size(
                 {
 #if ENABLE_GLEZ_DRAWING
                     fonts::center_screen->unload();
-                    fonts::center_screen.reset(new fonts::font(paths::getDataPath("/fonts/notosans.ttf"), after));
+                    fonts::center_screen.reset(new fonts::font(paths::getDataPath("/fonts/Verdana.ttf"), after));
 #else
                     fonts::center_screen->changeSize(after);
 #endif
@@ -202,17 +202,17 @@ void Initialize()
     }
 #if ENABLE_GLEZ_DRAWING
     glez::preInit();
-    fonts::menu          = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 10);
+    fonts::menu          = std::make_unique<fonts::font>(paths::getDataPath("/fonts/Verdana.ttf"), 10);
     fonts::esp           = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 10);
-    fonts::center_screen = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 12);
+    fonts::center_screen = std::make_unique<fonts::font>(paths::getDataPath("/fonts/Verdana.ttf"), 12);
 #elif ENABLE_ENGINE_DRAWING
-    fonts::menu = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 10, true);
+    fonts::menu = std::make_unique<fonts::font>(paths::getDataPath("/fonts/Verdana.ttf"), 10, true);
     fonts::esp = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 10, true);
-    fonts::center_screen = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 12, true);
+    fonts::center_screen = std::make_unique<fonts::font>(paths::getDataPath("/fonts/Verdana.ttf"), 12, true);
 #elif ENABLE_IMGUI_DRAWING
-    fonts::menu          = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 14, true);
+    fonts::menu          = std::make_unique<fonts::font>(paths::getDataPath("/fonts/Verdana.ttf"), 14, true);
     fonts::esp           = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 15);
-    fonts::center_screen = std::make_unique<fonts::font>(paths::getDataPath("/fonts/notosans.ttf"), 15, true);
+    fonts::center_screen = std::make_unique<fonts::font>(paths::getDataPath("/fonts/Verdana.ttf"), 15, true);
 #endif
 #if ENABLE_ENGINE_DRAWING
     texture_white                = g_ISurface->CreateNewTextureID();
