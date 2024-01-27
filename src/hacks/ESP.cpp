@@ -1001,8 +1001,17 @@ void _FASTCALL ProcessEntity(CachedEntity *ent)
             {
                 // Playername
                 if (show_name)
-                    AddEntityString(ent, std::string(info.name));
+                {
+                    if (ent->IsVisible()) // I do not know where to place this so this seems like a good idea!
+                    {
+                        AddEntityString(ent, "Visible", colors::Green);
+                    }
+                    else
+                    {
+                        AddEntityString(ent, "Invisible", colors::Red);
 
+                    AddEntityString(ent, std::string(info.name));
+                }
                 // Player class
                 if (show_class && pclass > 0 && pclass < 10)
                     AddEntityString(ent, classes[pclass - 1]);
