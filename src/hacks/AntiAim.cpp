@@ -437,7 +437,7 @@ if (g_pLocalPlayer->isFakeAngleCM) {
     case 9: // Sideways
         if (!yaw_mode)
             swap = !swap;
-        y += swap ? 90.0f : -90.0f;
+        y += swap ? 140.0f : -140.0f;
         break;
     case 10: // Heck
         FuckYaw(y);
