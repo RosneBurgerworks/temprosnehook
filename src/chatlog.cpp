@@ -129,4 +129,9 @@ void LogMessage(int eid, std::string message)
 #endif
              << csv_stream::end;
 }
+#else
+void LogMessage(int eid, std::string message)
+{
+    logging::Info("[ERROR] csvstream not found.");
+}
 } // namespace chatlog
