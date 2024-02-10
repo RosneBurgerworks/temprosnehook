@@ -366,13 +366,11 @@ void StoreClientData()
     data.friendid     = g_ISteamUser->GetSteamID().GetAccountID();
     data.ts_injected  = time_injected;
     data.textmode     = ENABLE_TEXTMODE;
-  
+  // IPC names are epic so keep it (:
       if (g_ISteamUser)
     {
        strncpy(data.name, hooked_methods::methods::GetFriendPersonaName(g_ISteamFriends, g_ISteamUser->GetSteamID()), sizeof(data.name));
     }
-}
-
 
 void Heartbeat()
 {
