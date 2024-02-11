@@ -16,7 +16,7 @@ static settings::Boolean enable{ "noisemaker-spam.enable", "false" };
 static settings::Boolean enable{ "noisemaker-spam.enable", "true" };
 #endif
 
-static Timer timer;
+static Timer timer{};
 
 static void CreateMove()
 {
