@@ -7,20 +7,20 @@
 
 #include <settings/Int.hpp>
 #include "common.hpp"
-// #include "SetupBonesReconst.hpp"
+#include "SetupBonesReconst.hpp"
 
 namespace hitbox_cache
 {
 void EntityHitboxCache::Init()
 {
-    const model_t *model;
+    model_t *model;
     studiohdr_t *shdr;
     mstudiohitboxset_t *set;
     m_bInit    = true;
-    parent_ref = &entity_cache::array[hit_idx];
+    parent_ref = &(entity_cache::array[hit_idx]);
     if (CE_BAD(parent_ref))
         return;
-    model = RAW_ENT(parent_ref)->GetModel();
+    model = (model_t *) RAW_ENT(parent_ref)->GetModel();
     if (!model)
         return;
     if (!m_bModelSet || model != m_pLastModel)
@@ -29,9 +29,10 @@ void EntityHitboxCache::Init()
         if (!shdr)
             return;
         set = shdr->pHitboxSet(CE_INT(parent_ref, netvar.iHitboxSet));
-        if (!set)
+        if (!dynamic_cast<mstudiohitboxset_t *>(set))
             return;
-        m_pLastModel   = const_cast<model_t *>(model);
+        m_pLastModel   = model;
+        m_nNumHitboxes = 0;
         m_nNumHitboxes = set->numhitboxes;
 
         if (m_nNumHitboxes > CACHE_MAX_HITBOXES)
@@ -51,22 +52,22 @@ bool EntityHitboxCache::VisibilityCheck(int id)
         return false;
     if (!m_bSuccess)
         return false;
-    if (m_VisCheckValidationFlags >> id & 1)
-        return m_VisCheck >> id & 1;
+    if ((m_VisCheckValidationFlags >> id) & 1)
+        return (m_VisCheck >> id) & 1;
     // TODO corners
     hitbox = GetHitbox(id);
     if (!hitbox)
         return false;
-    bool validation = IsEntityVectorVisible(parent_ref, hitbox->center, true);
+    bool validation              = (IsEntityVectorVisible(parent_ref, hitbox->center, true));
     // Bitmask works sort of like an index in our case. 1 would be the first bit, and we are shifting this by id to get our index
     uint_fast64_t mask = 1ULL << id;
     // No branch conditional set https://graphics.stanford.edu/~seander/bithacks.html#ConditionalSetOrClearBitsWithoutBranching
     m_VisCheck = (m_VisCheck & ~mask) | (-validation & mask);
     m_VisCheckValidationFlags |= 1ULL << id;
-    return m_VisCheck >> id & 1;
+    return (m_VisCheck >> id) & 1;
 }
 
-static settings::Int setupbones_time{ "source.setupbones-time", "1" };
+static settings::Int setupbones_time{ "source.setupbones-time", "2" };
 
 void EntityHitboxCache::UpdateBones()
 {
@@ -81,13 +82,13 @@ void EntityHitboxCache::UpdateBones()
     // I do not have to find all of these signatures and dig through ida
     struct BoneCache;
 
-    typedef BoneCache *(*GetBoneCache_t)(unsigned int);
-    typedef void (*BoneCacheUpdateBones_t)(BoneCache *, matrix3x4_t *bones, unsigned int, float time);
-    static auto hitbox_bone_cache_handle_offset = *(unsigned int *) (CSignature::GetClientSignature("8B 86 ? ? ? ? 89 04 24 E8 ? ? ? ? 85 C0 89 C3 74 48") + 2);
+    typedef BoneCache *(*GetBoneCache_t)(unsigned);
+    typedef void (*BoneCacheUpdateBones_t)(BoneCache *, matrix3x4_t * bones, unsigned, float time);
+    static auto hitbox_bone_cache_handle_offset = *(unsigned *) (CSignature::GetClientSignature("8B 86 ? ? ? ? 89 04 24 E8 ? ? ? ? 85 C0 89 C3 74 48") + 2);
     static auto studio_get_bone_cache           = (GetBoneCache_t) CSignature::GetClientSignature("55 89 E5 56 53 BB ? ? ? ? 83 EC 50 C7 45 D8");
     static auto bone_cache_update_bones         = (BoneCacheUpdateBones_t) CSignature::GetClientSignature("55 89 E5 57 31 FF 56 53 83 EC 1C 8B 5D 08 0F B7 53 10");
 
-    auto hitbox_bone_cache_handle = CE_VAR(parent_ref, hitbox_bone_cache_handle_offset, unsigned int);
+    auto hitbox_bone_cache_handle = CE_VAR(parent_ref, hitbox_bone_cache_handle_offset, unsigned);
     if (hitbox_bone_cache_handle)
     {
         BoneCache *bone_cache = studio_get_bone_cache(hitbox_bone_cache_handle);
@@ -119,11 +120,7 @@ matrix3x4_t *EntityHitboxCache::GetBones(int numbones)
     case 3:
         if (CE_GOOD(parent_ref))
             bones_setup_time = CE_FLOAT(parent_ref, netvar.m_flSimulationTime);
-        break;
-    case 4:
-        bones_setup_time = g_IEngine->GetLastTimeStamp();
     }
-
     if (!bones_setup)
     {
         // If numbones is not set, get it from some terrible and unnamed variable
@@ -137,15 +134,13 @@ matrix3x4_t *EntityHitboxCache::GetBones(int numbones)
 
         if (bones.size() != (size_t) numbones)
             bones.resize(numbones);
-
         if (g_Settings.is_create_move)
         {
-
             // Only use reconstructed setupbones on players
-            /*if (parent_ref->m_Type() == ENTITY_PLAYER)
+            if (parent_ref->m_Type() == ENTITY_PLAYER)
                 bones_setup = setupbones_reconst::SetupBones(RAW_ENT(parent_ref), bones.data(), 0x7FF00);
-            else*/
-            bones_setup = RAW_ENT(parent_ref)->SetupBones(bones.data(), numbones, BONE_USED_BY_HITBOX, bones_setup_time);
+            else
+                bones_setup = RAW_ENT(parent_ref)->SetupBones(bones.data(), numbones, 0x7FF00, bones_setup_time);
         }
     }
     return bones.data();
@@ -153,7 +148,7 @@ matrix3x4_t *EntityHitboxCache::GetBones(int numbones)
 
 CachedHitbox *EntityHitboxCache::GetHitbox(int id)
 {
-    if (m_CacheValidationFlags >> id & 1)
+    if ((m_CacheValidationFlags >> id) & 1)
         return &m_CacheInternal[id];
     mstudiobbox_t *box;
 
@@ -165,14 +160,14 @@ CachedHitbox *EntityHitboxCache::GetHitbox(int id)
         return nullptr;
     if (CE_BAD(parent_ref))
         return nullptr;
-    auto model = RAW_ENT(parent_ref)->GetModel();
+    auto model = (const model_t *) RAW_ENT(parent_ref)->GetModel();
     if (!model)
         return nullptr;
     auto shdr = g_IModelInfo->GetStudiomodel(model);
     if (!shdr)
         return nullptr;
     auto set = shdr->pHitboxSet(CE_INT(parent_ref, netvar.iHitboxSet));
-    if (!set)
+    if (!dynamic_cast<mstudiohitboxset_t *>(set))
         return nullptr;
     if (m_nNumHitboxes > m_CacheInternal.size())
         m_CacheInternal.resize(m_nNumHitboxes);
