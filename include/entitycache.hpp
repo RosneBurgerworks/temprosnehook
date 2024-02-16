@@ -104,7 +104,7 @@ public:
         if (this) // convinced this isnt even needed but it was pre rosne? so probably has a reason
             return 0;
         
-        auto ent = RAW_ENT(this)
+        auto ent = RAW_ENT(this);
         if (ent)
             return 0;
         
