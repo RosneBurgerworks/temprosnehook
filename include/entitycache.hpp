@@ -101,11 +101,17 @@ public:
 
     int m_iClassID() const
     {
-        if (this && RAW_ENT(this))
-            if (RAW_ENT(this)->GetClientClass())
-                if (RAW_ENT(this)->GetClientClass()->m_ClassID)
-                    return RAW_ENT(this)->GetClientClass()->m_ClassID;
-        return 0;
+        if (this) // convinced this isnt even needed but it was pre rosne? so probably has a reason
+            return 0;
+        
+        auto ent = RAW_ENT(this)
+        if (ent)
+            return 0;
+        
+        if (ent->GetClientClass())
+            return 0;
+        // previously if m_ClassID == 0 return 0???? 
+        return RAW_ENT(this)->GetClientClass()->m_ClassID;
     };
 
     Vector m_vecOrigin() const
