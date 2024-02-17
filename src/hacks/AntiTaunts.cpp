@@ -1,36 +1,39 @@
-//
-// Created by Bintr
-//
-
-#include <settings/Bool.hpp>
 #include "common.hpp"
 
 namespace hacks::antitaunts
 {
-static settings::Boolean enable{ "remove.taunts", "true" };
 
-static void CreateMove()
+#if ENABLE_TEXTMODE
+static settings::Boolean remove_taunts{ "remove.taunts", "true" };
+#else
+static settings::Boolean remove_taunts{ "remove.taunts", "false" };
+#endif
+
+void CreateMove()
 {
-    if (!*enable)
+    for (int i = 1; i < g_GlobalVars->maxClients; ++i)
     {
-        return;
-    }
-
-    for (const auto &ent : entity_cache::player_cache)
-    {
-        if (RAW_ENT(ent)->IsDormant() || !HasCondition<TFCond_Taunting>(ent) || ent == LOCAL_E)
-        {
+        auto ent = ENTITY(i);
+        if (CE_BAD(ent) || ent == LOCAL_E || ent->m_Type() != ENTITY_PLAYER)
             continue;
-        }
-
         RemoveCondition<TFCond_Taunting>(ent);
     }
 }
 
-static InitRoutine EC(
-    []()
-    {
-        EC::Register(EC::CreateMove, CreateMove, "CM_AntiTaunt");
-        EC::Register(EC::CreateMoveWarp, CreateMove, "CMW_AntiTaunt");
+static void register_remove_taunts(bool enable)
+{
+    if (enable)
+        EC::Register(EC::CreateMove, CreateMove, "cm_antitaunt");
+    else
+        EC::Unregister(EC::CreateMove, "cm_antitaunt");
+}
+
+static InitRoutine init([]() {
+    remove_taunts.installChangeCallback([](bool new_val) {
+        register_remove_taunts(new_val);
     });
+    if (*remove_taunts)
+        register_remove_taunts(true);
+});
+
 } // namespace hacks::antitaunts
