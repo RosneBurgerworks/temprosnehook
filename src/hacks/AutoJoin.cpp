@@ -95,12 +95,17 @@ void UpdateSearch()
 
 static void Update()
 {
-    if (*autojoin_team && UnassignedTeam())
-        hack::ExecuteCommand("autoteam");
-    else if (*autojoin_class && UnassignedClass() && *autojoin_class < 10)
-        g_IEngine->ExecuteClientCmd(format("join_class ", class_names[*autojoin_class - 1]).c_str());
-    else if (*random_class && UnassignedClass())
-        g_IEngine->ExecuteClientCmd(format("join_class random").c_str());
+    static Timer join_timer{};
+    
+    if (join_timer.test_and_set(500))
+    {
+        if (*autojoin_team && UnassignedTeam())
+            hack::ExecuteCommand("autoteam");
+        else if (*autojoin_class && UnassignedClass() && *autojoin_class < 10)
+            g_IEngine->ExecuteClientCmd(format("join_class ", class_names[*autojoin_class - 1]).c_str());
+        else if (*random_class && UnassignedClass())
+            g_IEngine->ExecuteClientCmd(format("join_class random").c_str());
+    }
 }
 
 void OnShutdown()
