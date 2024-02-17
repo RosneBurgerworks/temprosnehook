@@ -38,7 +38,6 @@ bool UnassignedClass()
     return g_pLocalPlayer->clazz != *autojoin_class;
 }
 
-static Timer autoteam_timer{};
 static Timer startqueue_timer{};
 #if !ENABLE_VISUALS
 static Timer queue_timer{};
@@ -96,15 +95,12 @@ void UpdateSearch()
 
 static void Update()
 {
-    if (autoteam_timer.test_and_set(5000))
-    {
-        if (*autojoin_team && UnassignedTeam())
-            hack::ExecuteCommand("autoteam");
-        else if (*autojoin_class && UnassignedClass() && *autojoin_class < 10)
-            g_IEngine->ExecuteClientCmd(format("join_class ", class_names[*autojoin_class - 1]).c_str());
-        else if (*random_class && UnassignedClass())
-            g_IEngine->ExecuteClientCmd(format("join_class random").c_str());
-    }
+    if (*autojoin_team && UnassignedTeam())
+        hack::ExecuteCommand("autoteam");
+    else if (*autojoin_class && UnassignedClass() && *autojoin_class < 10)
+        g_IEngine->ExecuteClientCmd(format("join_class ", class_names[*autojoin_class - 1]).c_str());
+    else if (*random_class && UnassignedClass())
+        g_IEngine->ExecuteClientCmd(format("join_class random").c_str());
 }
 
 void OnShutdown()
