@@ -149,6 +149,7 @@ void hack::Hook()
 
     hooks::client.Set(g_IBaseClient);
     hooks::client.HookMethod(HOOK_ARGS(DispatchUserMessage));
+    hooks::client.HookMethod(HOOK_ARGS(VoiceStatus));
 #if ENABLE_VISUALS
     hooks::client.HookMethod(HOOK_ARGS(IN_KeyEvent));
 #endif

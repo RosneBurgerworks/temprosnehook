@@ -96,6 +96,10 @@ struct offsets
     {
         return PlatformOffset(36, undefined, undefined);
     }
+    static constexpr uint32_t VoiceStatus()
+    {
+        return PlatformOffset(33, undefined, undefined);
+    }
     static constexpr uint32_t CanPacket()
     {
         return PlatformOffset(54, undefined, undefined);

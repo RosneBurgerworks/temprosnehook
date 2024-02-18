@@ -40,6 +40,7 @@ DECLARE_HOOKED_METHOD(LevelShutdown, void, void *)
 DECLARE_HOOKED_METHOD(FireGameEvent, void, void *, IGameEvent *)
 // IBaseClient
 DECLARE_HOOKED_METHOD(DispatchUserMessage, bool, void *, int, bf_read &)
+DECLARE_HOOKED_METHOD(VoiceStatus, void, void *, int, qboolean)
 DECLARE_HOOKED_METHOD(IN_KeyEvent, int, void *, int, ButtonCode_t, const char *)
 // IInput
 DECLARE_HOOKED_METHOD(CreateMoveInput, void, IInput *, int, float, bool)
