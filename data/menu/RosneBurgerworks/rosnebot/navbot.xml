@@ -41,6 +41,7 @@
     <Box padding="12 6 6 6" width="content" height="content" name="Misc" x="370">
         <List width="150">
             <AutoVariable width="fill" target="nav.stuck-time" label="Nav stuck time" tooltip="Time in milliseconds the bot is stuck until re-path"/>
+            <AutoVariable width="fill" target="nav.stuck-time" label="Nav smoothen speed" tooltip="How smooth look at path is"/>
             <AutoVariable width="fill" target="nav.crazy-jump" label="Rathook Crazy Jump" tooltip="Do a flip to avoid getting stuck on edges"/>
             <AutoVariable width="fill" target="nav.vischeck-runtime.enabled" label="Nav vischeck"/>
             <AutoVariable width="fill" target="nav.vischeck-cache.time" label="Nav visc time"/>
