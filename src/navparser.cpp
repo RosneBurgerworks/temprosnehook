@@ -22,6 +22,7 @@ static settings::Boolean crazyjump{ "nav.crazy-jump", "false" };
 static settings::Boolean draw_debug_areas("nav.draw.debug-areas", "false");
 static settings::Boolean log_pathing{ "nav.log", "false" };
 static settings::Int stuck_time{ "nav.stuck-time", "750" };
+static settings::Int aim_speed{ "nav.smooth-speed", "7" };
 static settings::Int vischeck_cache_time{ "nav.vischeck-cache.time", "240" };
 static settings::Boolean vischeck_runtime{ "nav.vischeck-runtime.enabled", "true" };
 static settings::Int vischeck_time{ "nav.vischeck-runtime.delay", "2000" };
@@ -696,10 +697,9 @@ static void followCrumbs()
     {
         Vector next{ crumbs[0].vec.x, crumbs[0].vec.y, g_pLocalPlayer->v_Eye.z };
         next = GetAimAtAngles(g_pLocalPlayer->v_Eye, next);
-        static int aim_speed = 7; // how smooth nav is/ im cringing at this damn speed.
         // activate nav spin and smoothen
-        hacks::misc_aimbot::DoSlowAim(next, aim_speed);
-        current_user_cmd->viewangles = next, aim_speed;
+        hacks::misc_aimbot::DoSlowAim(next, *aim_speed);
+        current_user_cmd->viewangles = next, *aim_speed;
     }
 
     // omegatronic legit bot
