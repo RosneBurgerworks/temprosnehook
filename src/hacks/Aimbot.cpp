@@ -846,20 +846,15 @@ bool Aim(CachedEntity *entity)
 {
     // Get angles from eye to target
     Vector is_it_good = PredictEntity(entity);
-    
-    Vector player_velocity;
-    velocity::EstimateAbsVelocity(RAW_ENT(LOCAL_E), player_velocity);
-
-    Vector start = g_pLocalPlayer->v_Eye + player_velocity * TICKS_TO_TIME(1);
-
     if (!IsEntityVectorVisible(entity, is_it_good, true, MASK_SHOT_HULL, nullptr, true))
         return false;
 
-    Vector angles = GetAimAtAngles(start, is_it_good, LOCAL_E);
-    if (fov > 0.0f && cd.fov > fov)
+    Vector angles = GetAimAtAngles(g_pLocalPlayer->v_Eye, is_it_good, LOCAL_E);
+
+    if (fov > 0 && cd.fov > fov)
         return false;
     // Slow aim
-    if (slow_aim != 0)
+    if (slow_aim)
         DoSlowAim(angles);
 
 #if ENABLE_VISUALS
@@ -869,15 +864,11 @@ bool Aim(CachedEntity *entity)
     // Set angles
     current_user_cmd->viewangles = angles;
 
-    if (*silent && slow_aim == 0)
+    if (*silent && !slow_aim)
         g_pLocalPlayer->bUseSilentAngles = true;
     // Set tick count to targets (backtrack messes with this)
     if (!ShouldBacktrack(entity) && *nolerp && entity->m_IDX <= g_GlobalVars->maxClients)
-    {
-        auto ratio                   = std::clamp(cl_interp_ratio->GetFloat(), sv_client_min_interp_ratio->GetFloat(), sv_client_max_interp_ratio->GetFloat());
-        auto lerptime                = std::max(cl_interp->GetFloat(), ratio / (sv_maxupdaterate ? sv_maxupdaterate->GetFloat() : cl_updaterate->GetFloat()));
-        current_user_cmd->tick_count = TIME_TO_TICKS(CE_FLOAT(entity, netvar.m_flSimulationTime) + lerptime);
-    }
+        current_user_cmd->tick_count = TIME_TO_TICKS(CE_FLOAT(entity, netvar.m_flSimulationTime));
     aimed_this_tick      = true;
     viewangles_this_tick = angles;
     // Finish function

@@ -5,9 +5,11 @@
  *      Author: nullifiedcat
  */
 #include "common.hpp"
+#include "navparser.hpp"
 #include <settings/Bool.hpp>
 #include <boost/circular_buffer.hpp>
-
+// Found in C_BasePlayer. It represents "m_pCurrentCommand"
+#define CURR_CUSERCMD_PTR 4452
 namespace hacks::aimbot
 {
 extern settings::Boolean engine_projpred;
@@ -24,7 +26,7 @@ static settings::Int sample_size("debug.strafepred.samplesize", "10");
 Vector SimpleLatencyPrediction(CachedEntity *ent, int hb)
 {
     if (!ent)
-        return {};
+        return Vector();
     Vector result;
     GetHitbox(ent, hb, result);
     float latency = g_IEngine->GetNetChannelInfo()->GetLatency(FLOW_OUTGOING) + g_IEngine->GetNetChannelInfo()->GetLatency(FLOW_INCOMING);
@@ -77,7 +79,9 @@ static std::optional<StrafePredictionData> findCircle(const Vector &current, con
         if (xDelta_b == 0)
             return std::nullopt;
         else
+        {
             Center.y = BC_Mid.y + (BC_Mid.x - Center.x) / bSlope;
+        }
     }
     else if (yDelta_b == 0)
     {
@@ -87,7 +91,9 @@ static std::optional<StrafePredictionData> findCircle(const Vector &current, con
         else
             Center.y = AB_Mid.y + (AB_Mid.x - Center.x) / aSlope;
     }
-    else if (xDelta_a == 0 || xDelta_b == 0)
+    else if (xDelta_a == 0)
+        return std::nullopt;
+    else if (xDelta_b == 0)
         return std::nullopt;
     else
     {
@@ -143,7 +149,6 @@ std::optional<StrafePredictionData> initializeStrafePrediction(CachedEntity *ent
 
 Vector PredictStep(Vector pos, Vector &vel, const Vector &acceleration, std::pair<Vector, Vector> *minmax, float steplength, StrafePredictionData *strafepred, bool vischeck, std::optional<float> grounddistance)
 {
-
     Vector result = pos;
 
     // If we should do strafe prediction, then we still need to do the calculations, but instead of applying them we simply calculate the distance traveled and use that info together with strafe pred
@@ -168,7 +173,6 @@ Vector PredictStep(Vector pos, Vector &vel, const Vector &acceleration, std::pai
         low.z -= 8912.0f;
 
         {
-
             // First, ensure we're not slightly below the floor, up to 18 HU will snap up
             trace_t upwards_trace;
             Ray_t ray;
@@ -187,6 +191,7 @@ Vector PredictStep(Vector pos, Vector &vel, const Vector &acceleration, std::pai
                 grounddistance = 0.0f;
                 moved_upwards  = true;
             }
+
             // Now check actual ground distance
             else
             {
@@ -203,8 +208,9 @@ Vector PredictStep(Vector pos, Vector &vel, const Vector &acceleration, std::pai
             }
         }
     }
-    if (grounddistance && result.z < pos.z - *grounddistance)
-        result.z = pos.z - *grounddistance;
+    if (grounddistance)
+        if (result.z < pos.z - *grounddistance)
+            result.z = pos.z - *grounddistance;
 
     // Check if we hit a wall, if so, snap to it and distance ourselves a bit from it
     if (vischeck && !moved_upwards)
@@ -254,12 +260,12 @@ Vector PredictStep(Vector pos, Vector &vel, const Vector &acceleration, std::pai
                     hitpos += normal_wall * vel * steplength;
                     result = hitpos;
                     // Adjust velocity depending on angle
-                    float speed = vel.Length2D() * (M_PI_F - impact_angle);
+                    float speed = vel.Length2D() * (PI - impact_angle);
 
                     // Adjust new velocity
-                    Vector2D new_vel = point2.AsVector2D() - point1.AsVector2D();
+                    Vector2D new_vel = (point2.AsVector2D() - point1.AsVector2D());
                     // Ensure we have no 0 length
-                    if (new_vel.Length() > 0.0f)
+                    if (new_vel.Length())
                     {
                         new_vel /= new_vel.Length();
                         vel.x = new_vel.x * speed;
@@ -282,13 +288,13 @@ std::vector<Vector> Predict(CachedEntity *player, Vector pos, float offset, Vect
     float dist       = DistanceToGround(pos, minmax.first, minmax.second);
     auto strafe_pred = initializeStrafePrediction(player);
 
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; i++)
     {
         if (vischeck)
             pos = PredictStep(pos, vel, acceleration, &minmax, g_GlobalVars->interval_per_tick, strafe_pred ? &*strafe_pred : nullptr);
         else
             pos = PredictStep(pos, vel, acceleration, &minmax, g_GlobalVars->interval_per_tick, strafe_pred ? &*strafe_pred : nullptr, false, dist);
-        positions.emplace_back(pos.x, pos.y, pos.z + offset);
+        positions.push_back({ pos.x, pos.y, pos.z + offset });
     }
     return positions;
 }
@@ -298,7 +304,7 @@ void Prediction_PaintTraverse()
 {
     if (g_Settings.bInvalid)
         return;
-    if (*debug_pp_draw || *debug_pp_draw_engine)
+    if (debug_pp_draw || debug_pp_draw_engine)
     {
         if (!sv_gravity)
         {
@@ -307,15 +313,16 @@ void Prediction_PaintTraverse()
                 return;
         }
 
-        for (const auto &ent : entity_cache::player_cache)
+        for (auto const &ent : entity_cache::player_cache)
         {
-            if (RAW_ENT(ent)->IsDormant())
+            
+            if (CE_BAD(ent) || !ent->m_bAlivePlayer())
                 continue;
 
             Vector velocity;
             velocity::EstimateAbsVelocity(RAW_ENT(ent), velocity);
 
-            if (*debug_pp_draw_engine)
+            if (debug_pp_draw_engine)
             {
                 std::vector<Vector> data;
                 Vector original_origin = ent->m_vecOrigin();
@@ -326,7 +333,7 @@ void Prediction_PaintTraverse()
                 Vector mins = RAW_ENT(ent)->GetCollideable()->OBBMins();
                 Vector maxs = RAW_ENT(ent)->GetCollideable()->OBBMaxs();
 
-                for (int i = 0; i < 64; ++i)
+                for (int i = 0; i < 64; i++)
                 {
                     const_cast<Vector &>(RAW_ENT(ent)->GetAbsOrigin()) = new_origin;
                     CE_VECTOR(ent, 0x354)                              = new_origin;
@@ -345,17 +352,18 @@ void Prediction_PaintTraverse()
                 if (!draw::WorldToScreen(ent->m_vecOrigin(), previous_screen))
                     continue;
                 rgba_t color = colors::FromRGBA8(0, 0, 255, 255);
-                for (const auto &j : data)
+                for (size_t j = 0; j < data.size(); j++)
                 {
                     Vector screen;
-                    if (draw::WorldToScreen(j, screen))
+                    if (draw::WorldToScreen(data[j], screen))
                     {
                         draw::Line(screen.x, screen.y, previous_screen.x - screen.x, previous_screen.y - screen.y, color, 2);
                         previous_screen = screen;
                     }
                     else
+                    {
                         break;
-
+                    }
                     color.b -= 1.0f / 20.0f;
                 }
                 /*if (!ent->m_bEnemy())
@@ -369,24 +377,26 @@ void Prediction_PaintTraverse()
                 if (draw::WorldToScreen(pos2.first, aaa))
                     draw::Rectangle(aaa.x, aaa.y, 5, 5, colors::orange);*/
             }
-            if (*debug_pp_draw)
+            if (debug_pp_draw)
             {
+
                 auto data = Predict(ent, ent->m_vecOrigin(), 0.0f, velocity, Vector(0, 0, -sv_gravity->GetFloat()), std::make_pair(RAW_ENT(ent)->GetCollideable()->OBBMins(), RAW_ENT(ent)->GetCollideable()->OBBMaxs()), 64);
                 Vector previous_screen;
                 if (!draw::WorldToScreen(ent->m_vecOrigin(), previous_screen))
                     continue;
                 rgba_t color = colors::FromRGBA8(255, 0, 0, 255);
-                for (const auto &j : data)
+                for (size_t j = 0; j < data.size(); j++)
                 {
                     Vector screen;
-                    if (draw::WorldToScreen(j, screen))
+                    if (draw::WorldToScreen(data[j], screen))
                     {
                         draw::Line(screen.x, screen.y, previous_screen.x - screen.x, previous_screen.y - screen.y, color, 2);
                         previous_screen = screen;
                     }
                     else
+                    {
                         break;
-
+                    }
                     color.r -= 1.0f / 20.0f;
                 }
 
@@ -405,7 +415,7 @@ void Prediction_PaintTraverse()
 
 Vector EnginePrediction(CachedEntity *entity, float time, Vector *vecVelocity)
 {
-    Vector result;
+    Vector result          = entity->m_vecOrigin();
     IClientEntity *ent     = RAW_ENT(entity);
     Vector old_vecVelocity = NET_VECTOR(ent, 0x110);
     Vector old_absVelocity = NET_VECTOR(ent, 0x14c);
@@ -413,9 +423,9 @@ Vector EnginePrediction(CachedEntity *entity, float time, Vector *vecVelocity)
     typedef void (*SetupMoveFn)(IPrediction *, IClientEntity *, CUserCmd *, class IMoveHelper *, CMoveData *);
     typedef void (*FinishMoveFn)(IPrediction *, IClientEntity *, CUserCmd *, CMoveData *);
 
-    void **predictionVtable = *((void ***) g_IPrediction);
-    auto oSetupMove         = (SetupMoveFn) (*(unsigned *) (predictionVtable + 19));
-    auto oFinishMove        = (FinishMoveFn) (*(unsigned *) (predictionVtable + 20));
+    void **predictionVtable  = *((void ***) g_IPrediction);
+    SetupMoveFn oSetupMove   = (SetupMoveFn) (*(unsigned *) (predictionVtable + 19));
+    FinishMoveFn oFinishMove = (FinishMoveFn) (*(unsigned *) (predictionVtable + 20));
 
     // CMoveData *pMoveData = (CMoveData*)(sharedobj::client->lmap->l_addr +
     // 0x1F69C0C);  CMoveData movedata {};
@@ -426,7 +436,7 @@ Vector EnginePrediction(CachedEntity *entity, float time, Vector *vecVelocity)
 
     CUserCmd fakecmd{};
 
-    Vector vel;
+    Vector vel /* = NET_VECTOR(ent, 0x14c)*/;
     velocity::EstimateAbsVelocity(RAW_ENT(entity), vel);
 
     Vector vel_angles;
@@ -480,13 +490,13 @@ Vector EnginePrediction(CachedEntity *entity, float time, Vector *vecVelocity)
 
     return result;
 }
-
 std::pair<Vector, Vector> ProjectilePrediction_Engine(CachedEntity *ent, int hb, float speed, float gravity, float entgmod, float proj_startvelocity)
 {
-    Vector origin = RAW_ENT(ent)->GetAbsOrigin();
+    Vector origin = ent->m_vecOrigin();
     Vector velocity;
     velocity::EstimateAbsVelocity(RAW_ENT(ent), velocity);
-    Vector hitbox        = ent->hitboxes.GetHitbox(hb)->center;
+    Vector hitbox;
+    GetHitbox(ent, hb, hitbox);
     Vector hitbox_offset = hitbox - origin;
 
     if (!sv_gravity)
@@ -501,15 +511,12 @@ std::pair<Vector, Vector> ProjectilePrediction_Engine(CachedEntity *ent, int hb,
 
     float besttime          = currenttime;
     float mindelta          = 65536.0f;
+    float no_regression     = 66534.0f;
     Vector bestpos          = origin;
     Vector current          = origin;
     Vector current_velocity = velocity;
-    int maxsteps            = *debug_pp_steps;
+    int maxsteps            = (int) debug_pp_steps;
     float steplength        = g_GlobalVars->interval_per_tick;
-
-    Vector ent_mins = RAW_ENT(ent)->GetCollideable()->OBBMins();
-    Vector ent_maxs = RAW_ENT(ent)->GetCollideable()->OBBMaxs();
-
     for (int steps = 0; steps < maxsteps; steps++, currenttime += steplength)
     {
         ent->m_vecOrigin()                                 = current;
@@ -518,7 +525,7 @@ std::pair<Vector, Vector> ProjectilePrediction_Engine(CachedEntity *ent, int hb,
         current                                            = EnginePrediction(ent, steplength, &current_velocity);
 
         // Apply velocity if not touching the ground
-        if (!(CE_INT(ent, netvar.iFlags) & FL_ONGROUND))
+        if (!(CE_INT(ent, netvar.iFlags) & (1 << 0)))
             current_velocity.z -= sv_gravity->GetFloat() * entgmod * steplength;
 
         float rockettime = g_pLocalPlayer->v_Eye.DistTo(current) / speed;
@@ -530,6 +537,10 @@ std::pair<Vector, Vector> ProjectilePrediction_Engine(CachedEntity *ent, int hb,
             besttime = currenttime;
             bestpos  = current;
             mindelta = timedelta;
+        }
+        else if (mindelta < no_regression)
+        {
+            break;
         }
     }
     // logging::Info("besttime: %f, currenttime: %f, old currenttime: %f", besttime, currenttime, currenttime - steplength * maxsteps);
@@ -607,16 +618,14 @@ static InitRoutine init(
             []()
             {
                 // Don't run if we don't use it
-                if (!*hacks::aimbot::engine_projpred && !*debug_pp_draw)
-                {
+                if (!hacks::aimbot::engine_projpred && !debug_pp_draw)
                     return;
-                }
-
-                for (const auto &ent : entity_cache::player_cache)
+                for (auto const &ent: entity_cache::player_cache)
                 {
+                    
                     auto &buffer = previous_positions.at(ent->m_IDX - 1);
 
-                    if (CE_BAD(LOCAL_E) || RAW_ENT(ent)->IsDormant())
+                    if (CE_BAD(LOCAL_E) || CE_BAD(ent) || !ent->m_bAlivePlayer())
                     {
                         buffer.clear();
                         continue;
