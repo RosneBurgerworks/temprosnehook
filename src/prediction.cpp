@@ -260,7 +260,7 @@ Vector PredictStep(Vector pos, Vector &vel, const Vector &acceleration, std::pai
                     hitpos += normal_wall * vel * steplength;
                     result = hitpos;
                     // Adjust velocity depending on angle
-                    float speed = vel.Length2D() * (PI - impact_angle);
+                    float speed = vel.Length2D() * (M_PI_F - impact_angle);
 
                     // Adjust new velocity
                     Vector2D new_vel = (point2.AsVector2D() - point1.AsVector2D());
